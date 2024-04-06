@@ -1,0 +1,18 @@
+# Ignore files
+*
+
+# Except sources and types files
+!src/
+!src/**
+!types/
+!types/**
+
+# Except NodeJS files
+!package.json
+!pnpm-lock.yaml
+!tsconfig.json
+
+# Except Git files
+!.gitignore
+!LICENSE
+!README.md
