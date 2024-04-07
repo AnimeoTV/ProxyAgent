@@ -1,11 +1,20 @@
-import tls                          from "tls";
+import * as dns                     from "dns";
 import net                          from "net";
-import { Duplex }                   from "stream";
+import tls                          from "tls";
 import http                         from "http";
 import https                        from "https";
-import { SocksProxyAgent }          from "socks-proxy-agent";
-import { socksDispatcher }          from "fetch-socks";
-import { Agent, buildConnector }    from "undici-discord";
+import { Duplex }                   from "stream";
+
+import {
+    SocksClient,
+    SocksProxy,
+    SocksRemoteHost
+} from "socks";
+
+import {
+    Agent as UndiciAgent,
+    buildConnector
+} from "undici-discord";
 
 import {
     Agent as AgentBase,
@@ -14,87 +23,122 @@ import {
 
 
 ////////////////////////////////////////////////
-//  AGENT
+//  UTILS
 ////////////////////////////////////////////////
 
 
-// const proxyAgent = new SocksProxyAgent("socks://animeoProxy:AnimeoTroJoli2024@38.242.212.177");
-// const proxyAgent        = new SocksProxyAgent("socks://pepo:1337pepo@162.55.188.65");
+// Gently pasted from https://github.com/TooTallNate/proxy-agents/blob/70023c12abe0d014004af6309ff7d0fdbaa60875/packages/socks-proxy-agent/src/index.ts#L12
 
-// const undiciProxyAgent = socksDispatcher({
-//     type        : 5,
-//     host        : "38.242.212.177",
-//     port        : 1080,
-//     userId      : "animeoProxy",
-//     password    : "AnimeoTroJoli2024",
-//     // type        : 5,
-//     // host        : "162.55.188.65",
-//     // port        : 1080,
-//     // userId      : "pepo",
-//     // password    : "1337pepo",
-// });
+type ParsedSocksURL = {
+    lookup  : boolean;
+    proxy   : SocksProxy;
+};
 
+function parseSocksURL(url: URL): ParsedSocksURL {
+    let lookup = false;
+    let type: SocksProxy['type'] = 5;
+    const host = url.hostname;
 
+    // From RFC 1928, Section 3: https://tools.ietf.org/html/rfc1928#section-3
+    // "The SOCKS service is conventionally located on TCP port 1080"
+    const port = parseInt(url.port, 10) || 1080;
 
+    // figure out if we want socks v4 or v5, based on the "protocol" used.
+    // Defaults to 5.
+    switch (url.protocol.replace(':', '')) {
+        case 'socks4':
+            lookup = true;
+            type = 4;
+            break;
+        // pass through
+        case 'socks4a':
+            type = 4;
+            break;
+        case 'socks5':
+            lookup = true;
+            type = 5;
+            break;
+        // pass through
+        case 'socks': // no version specified, default to 5h
+            type = 5;
+            break;
+        case 'socks5h':
+            type = 5;
+            break;
+        default:
+            throw new TypeError(
+                `A "socks" protocol must be specified! Got: ${String(
+                    url.protocol
+                )}`
+            );
+    }
 
+    const proxy: SocksProxy = {
+        host,
+        port,
+        type,
+    };
 
-
-
-
-
-
-
-
-
-
-const server = net.createServer({
-    noDelay     : true,
-    keepAlive   : true,
-});
-
-server.on("connection", (socket) => {
-    socket.once("data", (data) => {
-        const length = 0
-            | (data[0] || 0) << 24
-            | (data[1] || 0) << 16
-            | (data[2] || 0) <<  8
-            | (data[3] || 0) <<  0;
-
-        const payloadString = data.subarray(4, 4 + length).toString("utf8");
-        const payload       = JSON.parse(payloadString);
-        const extra         = data.subarray(4 + length);
-
-        const proxiedSocket = net.createConnection({
-            host    : payload.host,
-            port    : payload.port,
-            noDelay : true,
-            timeout : 10_000
+    if (url.username) {
+        Object.defineProperty(proxy, 'userId', {
+            value: decodeURIComponent(url.username),
+            enumerable: false,
         });
+    }
 
-        proxiedSocket.pipe(socket);
-        proxiedSocket.write(extra);
-        socket.pipe(proxiedSocket);
-    });
-});
+    if (url.password != null) {
+        Object.defineProperty(proxy, 'password', {
+            value: decodeURIComponent(url.password),
+            enumerable: false,
+        });
+    }
 
-server.listen(3983, "127.0.0.1", () => {
-    console.log("[PROXY] Started.")
-});
+    return { lookup, proxy };
+}
+
+async function mutateDestination(socksProxyOptions: ParsedSocksURL, destination: SocksRemoteHost): Promise<SocksRemoteHost> {
+
+    function lookup() {
+        return new Promise<string>((resolve, reject) => {
+            dns.lookup(destination.host, {}, (err, res) => {
+                if (err) {
+                    reject(err);
+
+                } else {
+                    resolve(res);
+                }
+            });
+        });
+    }
+
+    if (socksProxyOptions.lookup) {
+        return {
+            host: await lookup(),
+            port: destination.port,
+        };
+
+    } else {
+        return destination;
+    }
+}
 
 
-
-
-
+////////////////////////////////////////////////
+//  HTTP AGENT
+////////////////////////////////////////////////
 
 
 class CustomAnimeoAgent extends AgentBase {
+
+    private _agentOpts: net.NetConnectOpts;
+
+    constructor(agentOpts: net.NetConnectOpts) {
+        super();
+        this._agentOpts = agentOpts;
+    }
+
     override connect(req: http.ClientRequest, options: AgentConnectOpts): http.Agent | Duplex | Promise<http.Agent | Duplex> {
-        const socket = net.createConnection({
-            host    : "127.0.0.1",
-            port    : 3983,
-            noDelay : true,
-            timeout : 10_000
-        });
+        const socket = net.createConnection(this._agentOpts);
 
         const data = Buffer.from(
             JSON.stringify({
@@ -138,66 +182,115 @@ class CustomAnimeoAgent extends AgentBase {
             return socket;
         }
     }
+}
+
+
+////////////////////////////////////////////////
+//  PROXY AGENTS
+////////////////////////////////////////////////
+
+
+export type CreateProxyServerOptions = {
+    proxyConnectionUri?: string;
+    listeners: {
+        port: number;
+        host: string;
+    }[];
 };
 
-const proxyAgent = new CustomAnimeoAgent();
+export function createProxyServer(createOptions: CreateProxyServerOptions) {
+    const socksProxyOptions = createOptions.proxyConnectionUri && parseSocksURL(new URL(createOptions.proxyConnectionUri));
 
-http.globalAgent    = proxyAgent;
-https.globalAgent   = proxyAgent;
+    const server = net.createServer({
+        noDelay     : true,
+        keepAlive   : true,
+    });
 
+    server.on("connection", (socket) => {
+        socket.once("data", async (data) => {
+            try {
+                const length = 0
+                    | (data[0] || 0) << 24
+                    | (data[1] || 0) << 16
+                    | (data[2] || 0) <<  8
+                    | (data[3] || 0) <<  0;
 
+                const payloadString = data.subarray(4, 4 + length).toString("utf8");
+                const payload       = JSON.parse(payloadString);
+                const extra         = data.subarray(4 + length);
 
+                if (socksProxyOptions) {
+                    const { socket: proxiedSocket } = await SocksClient.createConnection({
+                        proxy       : socksProxyOptions.proxy,
+                        command     : "connect",
+                        destination : await mutateDestination(socksProxyOptions, payload),
+                    });
 
+                    proxiedSocket.pipe(socket);
+                    proxiedSocket.write(extra);
+                    socket.pipe(proxiedSocket);
 
+                } else {
+                    const proxiedSocket = net.createConnection({
+                        host    : payload.host,
+                        port    : payload.port,
+                        noDelay : true,
+                        timeout : 10_000
+                    });
 
+                    proxiedSocket.pipe(socket);
+                    proxiedSocket.write(extra);
+                    socket.pipe(proxiedSocket);
+                }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-const undiciProxyAgent = new Agent({
-    connect(options, callback) {
-        const undiciConnect = buildConnector({});
-
-        const socket = net.createConnection({
-            host    : "127.0.0.1",
-            port    : 3983,
-            noDelay : true,
-            timeout : 10_000
+            } catch (err: any) {
+                socket.destroy();
+                console.error(err);
+            }
         });
+    });
 
-        const data = Buffer.from(
-            JSON.stringify({
-                host: options.hostname,
-                port: Number(options.port) || ((options.protocol === "https:") ? (443) : (80)),
-            }),
-        );
+    for (const listener of createOptions.listeners)
+        server.listen(listener.port, listener.host, () => {
+            console.log(`[PROXY] Started on ${listener.host}:${listener.port}.`);
+        });
+}
 
-        const buffer = new Uint8Array(data.length + 4);
+export function createHttpProxyAgent(agentOpts: net.NetConnectOpts) {
+    return new CustomAnimeoAgent(agentOpts);
+}
 
-        buffer[0] = (data.length >> 24) & 0xFF;
-        buffer[1] = (data.length >> 16) & 0xFF;
-        buffer[2] = (data.length >>  8) & 0xFF;
-        buffer[3] = (data.length >>  0) & 0xFF;
-        data.copy(buffer, 4);
-        socket.write(buffer);
+export function createUndiciProxyAgent(agentOpts: net.NetConnectOpts) {
+    return new UndiciAgent({
 
-        return (options.protocol === "https:")
-            ? undiciConnect({ ...options, httpSocket: socket }, callback)
-            : callback(null, socket);
-    },
-});
+        connect(options, callback) {
+            const undiciConnect = buildConnector({});
+            const socket        = net.createConnection(agentOpts);
 
-export default {
-    proxyAgent,
-    undiciProxyAgent,
-};
+            const data = Buffer.from(
+                JSON.stringify({
+                    host: options.hostname,
+                    port: Number(options.port) || ((options.protocol === "https:") ? (443) : (80)),
+                }),
+            );
+
+            const buffer = new Uint8Array(data.length + 4);
+
+            buffer[0] = (data.length >> 24) & 0xFF;
+            buffer[1] = (data.length >> 16) & 0xFF;
+            buffer[2] = (data.length >>  8) & 0xFF;
+            buffer[3] = (data.length >>  0) & 0xFF;
+            data.copy(buffer, 4);
+            socket.write(buffer);
+
+            return (options.protocol === "https:")
+                ? undiciConnect({ ...options, httpSocket: socket }, callback)
+                : callback(null, socket);
+        },
+    });
+}
+
+export function setHttpGlobalAgent(agent: CustomAnimeoAgent) {
+    http.globalAgent    = agent;
+    https.globalAgent   = agent;
+}
