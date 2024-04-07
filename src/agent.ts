@@ -201,14 +201,13 @@ export type CreateProxyServerOptions = {
 export function createProxyServer(createOptions: CreateProxyServerOptions) {
     const socksProxyOptions = createOptions.proxyConnectionUri && parseSocksURL(new URL(createOptions.proxyConnectionUri));
 
-    const server = net.createServer({
-        noDelay     : true,
-        keepAlive   : true,
-    });
+    const server = net.createServer({ noDelay: true });
 
     server.on("connection", (socket) => {
-        socket.once("data", async (data) => {
+        socket.once("readable", async () => {
             try {
+                const data = socket.read();
+
                 const length = 0
                     | (data[0] || 0) << 24
                     | (data[1] || 0) << 16
@@ -221,9 +220,11 @@ export function createProxyServer(createOptions: CreateProxyServerOptions) {
 
                 if (socksProxyOptions) {
                     const { socket: proxiedSocket } = await SocksClient.createConnection({
-                        proxy       : socksProxyOptions.proxy,
-                        command     : "connect",
-                        destination : await mutateDestination(socksProxyOptions, payload),
+                        proxy           : socksProxyOptions.proxy,
+                        command         : "connect",
+                        destination     : await mutateDestination(socksProxyOptions, payload),
+                        set_tcp_nodelay : true,
+                        timeout         : 30_000,
                     });
 
                     proxiedSocket.pipe(socket);
@@ -235,7 +236,7 @@ export function createProxyServer(createOptions: CreateProxyServerOptions) {
                         host    : payload.host,
                         port    : payload.port,
                         noDelay : true,
-                        timeout : 10_000
+                        timeout : 30_000
                     });
 
                     proxiedSocket.pipe(socket);

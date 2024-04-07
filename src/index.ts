@@ -4,14 +4,14 @@ export * from "./agent.js";
 // import * as Discord             from "discord.js";
 // import { createDiscordProxy }   from "./discordProxy.js";
 
-// import {
-//     createProxyServer,
-//     createHttpProxyAgent,
-//     setHttpGlobalAgent
-// } from "./agent.js";
+import {
+    createProxyServer,
+    createHttpProxyAgent,
+    setHttpGlobalAgent
+} from "./agent.js";
 
-// process.on("uncaughtException"  , console.error);
-// process.on("unhandledRejection" , console.error);
+process.on("uncaughtException"  , console.error);
+process.on("unhandledRejection" , console.error);
 
 // createDiscordProxy({
 //     authorizationMapping: new Map([
@@ -25,16 +25,16 @@ export * from "./agent.js";
 //     ],
 // });
 
-// createProxyServer({
-//     proxyConnectionUri: "socks://animeoProxy:AnimeoTroJoli2024@38.242.212.177",
-//     // proxyConnectionUri: "socks://pepo:1337pepo@162.55.188.65",
-//     listeners: [
-//         {
-//             port: 3983,
-//             host: "127.0.0.1",
-//         }
-//     ],
-// });
+createProxyServer({
+    // proxyConnectionUri: "socks://animeoProxy:AnimeoTroJoli2024@38.242.212.177",
+    proxyConnectionUri: "socks://pepo:1337pepo@162.55.188.65",
+    listeners: [
+        {
+            port: 3983,
+            host: "127.0.0.1",
+        }
+    ],
+});
 
 // setHttpGlobalAgent(
 //     createHttpProxyAgent({
