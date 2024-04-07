@@ -201,60 +201,64 @@ export type CreateProxyServerOptions = {
 export function createProxyServer(createOptions: CreateProxyServerOptions) {
     const socksProxyOptions = createOptions.proxyConnectionUri && parseSocksURL(new URL(createOptions.proxyConnectionUri));
 
-    const server = net.createServer({ noDelay: true });
+    function createServer(listener: CreateProxyServerOptions["listeners"][0]) {
+        const server = net.createServer({ noDelay: true });
 
-    server.on("connection", (socket) => {
-        socket.once("readable", async () => {
-            try {
-                const data = socket.read();
+        server.on("connection", (socket) => {
+            socket.once("readable", async () => {
+                try {
+                    const data = socket.read();
 
-                const length = 0
-                    | (data[0] || 0) << 24
-                    | (data[1] || 0) << 16
-                    | (data[2] || 0) <<  8
-                    | (data[3] || 0) <<  0;
+                    const length = 0
+                        | (data[0] || 0) << 24
+                        | (data[1] || 0) << 16
+                        | (data[2] || 0) <<  8
+                        | (data[3] || 0) <<  0;
 
-                const payloadString = data.subarray(4, 4 + length).toString("utf8");
-                const payload       = JSON.parse(payloadString);
-                const extra         = data.subarray(4 + length);
+                    const payloadString = data.subarray(4, 4 + length).toString("utf8");
+                    const payload       = JSON.parse(payloadString);
+                    const extra         = data.subarray(4 + length);
 
-                if (socksProxyOptions) {
-                    const { socket: proxiedSocket } = await SocksClient.createConnection({
-                        proxy           : socksProxyOptions.proxy,
-                        command         : "connect",
-                        destination     : await mutateDestination(socksProxyOptions, payload),
-                        set_tcp_nodelay : true,
-                        timeout         : 30_000,
-                    });
+                    if (socksProxyOptions) {
+                        const { socket: proxiedSocket } = await SocksClient.createConnection({
+                            proxy           : socksProxyOptions.proxy,
+                            command         : "connect",
+                            destination     : await mutateDestination(socksProxyOptions, payload),
+                            set_tcp_nodelay : true,
+                            timeout         : 15_000,
+                        });
 
-                    proxiedSocket.pipe(socket);
-                    proxiedSocket.write(extra);
-                    socket.pipe(proxiedSocket);
+                        proxiedSocket.pipe(socket);
+                        proxiedSocket.write(extra);
+                        socket.pipe(proxiedSocket);
 
-                } else {
-                    const proxiedSocket = net.createConnection({
-                        host    : payload.host,
-                        port    : payload.port,
-                        noDelay : true,
-                        timeout : 30_000
-                    });
+                    } else {
+                        const proxiedSocket = net.createConnection({
+                            host    : payload.host,
+                            port    : payload.port,
+                            noDelay : true,
+                            timeout : 15_000
+                        });
 
-                    proxiedSocket.pipe(socket);
-                    proxiedSocket.write(extra);
-                    socket.pipe(proxiedSocket);
+                        proxiedSocket.pipe(socket);
+                        proxiedSocket.write(extra);
+                        socket.pipe(proxiedSocket);
+                    }
+
+                } catch (err: any) {
+                    socket.destroy();
+                    console.error(err);
                 }
-
-            } catch (err: any) {
-                socket.destroy();
-                console.error(err);
-            }
+            });
         });
-    });
 
-    for (const listener of createOptions.listeners)
         server.listen(listener.port, listener.host, () => {
             console.log(`[PROXY] Started on ${listener.host}:${listener.port}.`);
         });
+    }
+
+    for (const listener of createOptions.listeners)
+        createServer(listener);
 }
 
 export function createHttpProxyAgent(agentOpts: net.NetConnectOpts) {
