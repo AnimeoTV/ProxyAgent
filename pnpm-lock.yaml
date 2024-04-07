@@ -5,9 +5,6 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
-  '@sapphire/result':
-    specifier: ^2.6.6
-    version: 2.6.6
   agent-base:
     specifier: ^7.1.1
     version: 7.1.1
@@ -20,18 +17,9 @@ dependencies:
   express:
     specifier: ^4.19.2
     version: 4.19.2
-  fetch-socks:
-    specifier: ^1.3.0
-    version: 1.3.0
   socks:
     specifier: ^2.8.1
     version: 2.8.1
-  socks-proxy-agent:
-    specifier: ^8.0.3
-    version: 8.0.3
-  tlru:
-    specifier: ^1.0.2
-    version: 1.0.2
   undici:
     specifier: ^6.11.1
     version: 6.11.1
@@ -133,11 +121,6 @@ packages:
 
   /@sapphire/async-queue@1.5.2:
     resolution: {integrity: sha512-7X7FFAA4DngXUl95+hYbUF19bp1LGiffjJtu7ygrZrbdCSsdDDBaSjB7Akw0ZbOu6k0xpXyljnJ6/RZUvLfRdg==}
-    engines: {node: '>=v14.0.0', npm: '>=7.0.0'}
-    dev: false
-
-  /@sapphire/result@2.6.6:
-    resolution: {integrity: sha512-QCjj7X/QlY0QUCeAaZQmnrsMH/b2BMQYee3F1Y5iF17JagUQqO3KZlG7vfXWQU3SRAJX5OgZZynBjixUH+nNGg==}
     engines: {node: '>=v14.0.0', npm: '>=7.0.0'}
     dev: false
 
@@ -462,13 +445,6 @@ packages:
     resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
     dev: false
 
-  /fetch-socks@1.3.0:
-    resolution: {integrity: sha512-Cq7O53hoNiVeOs6u54f8M/H/w2yzhmnTQ3tcAJj9FNKYOeNGmt8qNU1zpWOzJD09f0uqfmBXxLbzWPsnT6GcRw==}
-    dependencies:
-      socks: 2.8.1
-      undici: 6.11.1
-    dev: false
-
   /finalhandler@1.2.0:
     resolution: {integrity: sha512-5uXcUVftlQMFnWC9qu/svkWv3GTd2PfUhK/3PLkYNAe7FbqJMt3515HaxE6eRL74GdsriiwujiawdaB1BpEISg==}
     engines: {node: '>= 0.8'}
@@ -492,11 +468,6 @@ packages:
   /fresh@0.5.2:
     resolution: {integrity: sha512-zJ2mQYM18rEFOudeV4GShTGIQ7RbzA7ozbU9I/XBpm7kqgMywgmylMwXHxZJmkVoYkna9d2pVXVXPdYTP9ej8Q==}
     engines: {node: '>= 0.6'}
-    dev: false
-
-  /fun-dispatcher@1.2.6:
-    resolution: {integrity: sha512-lw6LoVrReV6qlaADvy0ua9a1f3W9qGLd8BBfLnzIV0YCfZd3jo5caZsgBBGOw/tO50P783iFEK8aTSwtQ67KDQ==}
-    engines: {node: '>=12.1'}
     dev: false
 
   /function-bind@1.1.2:
@@ -765,17 +736,6 @@ packages:
     engines: {node: '>= 6.0.0', npm: '>= 3.0.0'}
     dev: false
 
-  /socks-proxy-agent@8.0.3:
-    resolution: {integrity: sha512-VNegTZKhuGq5vSD6XNKlbqWhyt/40CgoEw8XxD6dhnm8Jq9IEa3nIa4HwnM8XOqU0CdB0BwWVXusqiFXfHB3+A==}
-    engines: {node: '>= 14'}
-    dependencies:
-      agent-base: 7.1.1
-      debug: 4.3.4
-      socks: 2.8.1
-    transitivePeerDependencies:
-      - supports-color
-    dev: false
-
   /socks@2.8.1:
     resolution: {integrity: sha512-B6w7tkwNid7ToxjZ08rQMT8M9BJAf8DKx8Ft4NivzH0zBUfd6jldGcisJn/RLgxcX3FPNDdNQCUEMMT79b+oCQ==}
     engines: {node: '>= 10.0.0', npm: '>= 3.0.0'}
@@ -791,13 +751,6 @@ packages:
   /statuses@2.0.1:
     resolution: {integrity: sha512-RwNA9Z/7PrK06rYLIzFMlaF+l73iwpzsqRIFgbMLbTcLD6cOao82TaWefPXQvB2fOC4AjuYSEndS7N/mTCbkdQ==}
     engines: {node: '>= 0.8'}
-    dev: false
-
-  /tlru@1.0.2:
-    resolution: {integrity: sha512-Jjrt6ebN0kR5gSTWkaU1LV44n8aFJkBnkX/YIwO+FBgrYNkDYE7Elx8i4vwiiCg/wf+YZixI166eOmT3y7Dn9Q==}
-    engines: {node: '>=12.1'}
-    dependencies:
-      fun-dispatcher: 1.2.6
     dev: false
 
   /toidentifier@1.0.1:
