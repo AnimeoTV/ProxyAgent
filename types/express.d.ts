@@ -11,19 +11,13 @@ import { SymbolTinyWs } from "../src/tinyWs.js";
 
 export type TinyWsMiddleware = (ws: WebSocket, req: Express.Request) => void;
 
-declare global {
-    namespace Express {
-        interface Application {
-            ws(path: string, middleware: TinyWsMiddleware): void;
-        }
+declare module "@types/express-serve-static-core" {
+    interface IRouter {
+        ws(path: string, middleware: TinyWsMiddleware): void;
     }
 }
 
 declare module "express" {
-    interface Router {
-        ws(path: string, middleware: TinyWsMiddleware): void;
-    }
-
     interface Request {
         [SymbolTinyWs]?: () => Promise<WebSocket>;
     }
