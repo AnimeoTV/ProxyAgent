@@ -51,7 +51,7 @@ function attachCustomMethod(router: Express.Router) {
             }
         }
 
-        router.use(path, handleRequest);
+        router.get(path, handleRequest);
     }
 
     router.ws = handleCustomMethod;
